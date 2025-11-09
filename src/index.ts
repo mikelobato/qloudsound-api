@@ -79,10 +79,10 @@ const applyCors = (request: Request, response: Response, env: Env): Response => 
   headers.set("Access-Control-Allow-Headers", request.headers.get("Access-Control-Request-Headers") ?? "Content-Type");
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
 
-  if (allowOrigin !== "*") {
-    headers.set("Access-Control-Allow-Credentials", "true");
+  if (allowOrigin === "*") {
+    headers.set("Access-Control-Allow-Credentials", "false");
   } else {
-    headers.delete("Access-Control-Allow-Credentials");
+    headers.set("Access-Control-Allow-Credentials", "true");
   }
 
   return new Response(response.body, {

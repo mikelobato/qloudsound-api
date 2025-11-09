@@ -12,7 +12,7 @@ zone_name = "qloudsound.com"
 
 [vars]
 # Comma separated list of allowed origins for CORS (can be overridden per environment).
-API_ALLOWED_ORIGINS = "https://qloudsound.com,https://www.qloudsound.com"
+API_ALLOWED_ORIGINS = "*"
 
 [[d1_databases]]
 binding = "REQUESTS_DB"
