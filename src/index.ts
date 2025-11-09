@@ -20,12 +20,38 @@ type StoredRequest = {
   status: "pending" | "in_progress" | "completed";
 };
 
+type CatalogEntry = {
+  id: string;
+  title: string;
+  status: "requested" | "published";
+  isrc?: string;
+  upc?: string;
+  submittedAt: string;
+};
+
+type CatalogRow = {
+  id: string;
+  title: string;
+  status: string;
+  isrc?: string | null;
+  upc?: string | null;
+  submitted_at: string;
+};
+
+type PublishedTrack = {
+  id: number;
+  name: string;
+  isrc: string;
+  upc: string;
+};
+
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8"
 };
 
 const DEFAULT_ALLOWED_ORIGINS = ["*"];
 const PUBLIC_SITE_PREFIX = "/public-site";
+const CATALOG_PATH = `${PUBLIC_SITE_PREFIX}/catalog`;
 
 const TABLE_SQL = `CREATE TABLE IF NOT EXISTS requests (
   id TEXT PRIMARY KEY,
@@ -38,7 +64,17 @@ const TABLE_SQL = `CREATE TABLE IF NOT EXISTS requests (
   status TEXT NOT NULL
 )`;
 
+const CATALOG_SQL = `CREATE TABLE IF NOT EXISTS catalog (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL,
+  isrc TEXT,
+  upc TEXT,
+  submitted_at TEXT NOT NULL
+)`;
+
 let requestsTablePromise: Promise<void> | undefined;
+let catalogTablePromise: Promise<void> | undefined;
 
 const toJSONResponse = (
   payload: unknown,
@@ -132,6 +168,42 @@ const ensureRequestsTable = async (env: Env) => {
   return requestsTablePromise;
 };
 
+const ensureCatalogTable = async (env: Env) => {
+  if (!env.REQUESTS_DB) {
+    throw new Error("REQUESTS_DB binding is not configured");
+  }
+
+  if (!catalogTablePromise) {
+    catalogTablePromise = env.REQUESTS_DB.prepare(CATALOG_SQL)
+      .run()
+      .then(() => undefined)
+      .catch((error) => {
+        catalogTablePromise = undefined;
+        throw error;
+      });
+  }
+
+  return catalogTablePromise;
+};
+
+const seedCatalogDefaults = async (env: Env) => {
+  if (!env.REQUESTS_DB) {
+    throw new Error("REQUESTS_DB binding is not configured");
+  }
+
+  await ensureCatalogTable(env);
+  await Promise.all(
+    publishedTracks.map((track) =>
+      env.REQUESTS_DB!.prepare(
+        `INSERT OR IGNORE INTO catalog (id, title, status, isrc, upc, submitted_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+      )
+        .bind(track.id, track.title, track.status, track.isrc ?? null, track.upc ?? null, track.submittedAt)
+        .run()
+    )
+  );
+};
+
 const saveRequest = async (env: Env, entry: StoredRequest) => {
   if (!env.REQUESTS_DB) {
     throw new Error("REQUESTS_DB binding is not configured");
@@ -144,6 +216,42 @@ const saveRequest = async (env: Env, entry: StoredRequest) => {
   )
     .bind(entry.id, entry.name, entry.email, entry.style, entry.description ?? null, entry.filename ?? null, entry.createdAt, entry.status)
     .run();
+};
+
+const addCatalogEntry = async (env: Env, entry: CatalogEntry) => {
+  if (!env.REQUESTS_DB) {
+    throw new Error("REQUESTS_DB binding is not configured");
+  }
+
+  await ensureCatalogTable(env);
+  await env.REQUESTS_DB.prepare(
+    `INSERT OR REPLACE INTO catalog (id, title, status, isrc, upc, submitted_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+  )
+    .bind(entry.id, entry.title, entry.status, entry.isrc ?? null, entry.upc ?? null, entry.submittedAt)
+    .run();
+};
+
+const rowToCatalogEntry = (row: CatalogRow): CatalogEntry => ({
+  id: row.id,
+  title: row.title,
+  status: (row.status as CatalogEntry["status"]) ?? "requested",
+  isrc: row.isrc ?? undefined,
+  upc: row.upc ?? undefined,
+  submittedAt: row.submitted_at
+});
+
+const listCatalogEntries = async (env: Env, status?: CatalogEntry["status"]): Promise<CatalogEntry[]> => {
+  if (!env.REQUESTS_DB) {
+    throw new Error("REQUESTS_DB binding is not configured");
+  }
+  await ensureCatalogTable(env);
+  await seedCatalogDefaults(env);
+  const query = status ? "SELECT * FROM catalog WHERE status = ?1 ORDER BY datetime(submitted_at) DESC" : "SELECT * FROM catalog ORDER BY datetime(submitted_at) DESC";
+  const stmt = env.REQUESTS_DB.prepare(query);
+  const result = status ? await stmt.bind(status).all() : await stmt.all();
+  const rows = (result.results ?? []) as CatalogRow[];
+  return rows.map(rowToCatalogEntry);
 };
 
 const notifyTelegram = async (env: Env, entry: StoredRequest, extra?: string) => {
@@ -241,6 +349,12 @@ const handlePublicRequestPost = async (request: Request, env: Env) => {
 
   try {
     await saveRequest(env, entry);
+    await addCatalogEntry(env, {
+      id: entry.id,
+      title: `${entry.name} - ${entry.style}`,
+      status: "requested",
+      submittedAt: entry.createdAt
+    });
   } catch (error) {
     console.error("D1 persist error", error);
     return toJSONResponse(
@@ -290,6 +404,10 @@ const router = async (request: Request, env: Env): Promise<Response> => {
     return handlePublicSiteHealth();
   }
 
+  if (matchesPath(pathname, CATALOG_PATH) && request.method === "GET") {
+    return handleCatalog(env);
+  }
+
   if (matchesPath(pathname, `${PUBLIC_SITE_PREFIX}/requests`) && request.method === "POST") {
     return handlePublicRequestPost(request, env);
   }
@@ -321,4 +439,61 @@ export default {
       );
     }
   }
+};
+const publishedTracks: CatalogEntry[] = [
+  {
+    id: "catalog-1",
+    title: "Ginebra balla amb el sol",
+    status: "published",
+    isrc: "QT6EF2576934",
+    upc: "199956616165",
+    submittedAt: new Date().toISOString()
+  },
+  {
+    id: "catalog-2",
+    title: "Fuego Callejero",
+    status: "published",
+    isrc: "QT6EG2578923",
+    upc: "199955965677",
+    submittedAt: new Date().toISOString()
+  },
+  {
+    id: "catalog-3",
+    title: "Nos besamos y nos olvidamos",
+    status: "published",
+    isrc: "QT6EG2578924",
+    upc: "199955965707",
+    submittedAt: new Date().toISOString()
+  },
+  {
+    id: "catalog-4",
+    title: "Ya está bien",
+    status: "published",
+    isrc: "QT6EG2586747",
+    upc: "199955961914",
+    submittedAt: new Date().toISOString()
+  },
+  {
+    id: "catalog-5",
+    title: "Más pija que yo",
+    status: "published",
+    isrc: "QT6EG2586748",
+    upc: "199955961921",
+    submittedAt: new Date().toISOString()
+  },
+  {
+    id: "catalog-6",
+    title: "Ciego por tu luz",
+    status: "published",
+    isrc: "QT6ET2502320",
+    upc: "199955955654",
+    submittedAt: new Date().toISOString()
+  }
+];
+
+const handleCatalog = async (env: Env) => {
+  const entries = await listCatalogEntries(env, "published");
+  return toJSONResponse({
+    tracks: entries
+  });
 };
