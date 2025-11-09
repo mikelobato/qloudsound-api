@@ -33,7 +33,7 @@ Runtime env vars live in `wrangler.toml`.
   database_name = "qloudsound_requests"
   database_id = "62930b15-a8a9-4863-bb42-374c5d7a6d8d"
   ```
-- `TELEGRAM_TOKEN` / `TELEGRAM_CHAT` should be added via `wrangler secret put …` before deploying
+- `TELEGRAM_TOKEN` / `TELEGRAM_CHAT` can be added via `wrangler secret put …` to override the default credentials that were previously hardcoded in the Next.js API route
 
 ## Endpoints
 

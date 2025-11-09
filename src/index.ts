@@ -6,6 +6,9 @@ type Env = {
   REQUESTS_DB?: D1Database;
 };
 
+const FALLBACK_TELEGRAM_TOKEN = "8569580291:AAGmlcW72QooX00CCpEAE3sco7uA2NV6j2U";
+const FALLBACK_TELEGRAM_CHAT = "887525450";
+
 type StoredRequest = {
   id: string;
   name: string;
@@ -144,7 +147,10 @@ const saveRequest = async (env: Env, entry: StoredRequest) => {
 };
 
 const notifyTelegram = async (env: Env, entry: StoredRequest, extra?: string) => {
-  if (!env.TELEGRAM_TOKEN || !env.TELEGRAM_CHAT) {
+  const token = env.TELEGRAM_TOKEN ?? FALLBACK_TELEGRAM_TOKEN;
+  const chat = env.TELEGRAM_CHAT ?? FALLBACK_TELEGRAM_CHAT;
+
+  if (!token || !chat) {
     return;
   }
 
@@ -160,11 +166,11 @@ const notifyTelegram = async (env: Env, entry: StoredRequest, extra?: string) =>
     .filter(Boolean)
     .join("\n");
 
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`, {
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT,
+      chat_id: chat,
       text: rows
     })
   });
