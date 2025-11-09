@@ -2,6 +2,7 @@ name = "qloudsound-api"
 main = "src/index.ts"
 compatibility_date = "2024-06-20"
 
+
 # Enable `node:` polyfills if needed (fetch, crypto already available).
 compatibility_flags = ["nodejs_compat"]
 
@@ -18,3 +19,18 @@ API_ALLOWED_ORIGINS = "*"
 binding = "REQUESTS_DB"
 database_name = "qloudsound_requests"
 database_id = "62930b15-a8a9-4863-bb42-374c5d7a6d8d"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
