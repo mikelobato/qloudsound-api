@@ -1,29 +1,14 @@
 name = "qloudsound-api"
 main = "src/index.ts"
 compatibility_date = "2024-06-20"
-workers_dev = false
 
 # Enable `node:` polyfills if needed (fetch, crypto already available).
 compatibility_flags = ["nodejs_compat"]
 
+# Automatically attach the worker to the custom domain when deploying.
 [[routes]]
 pattern = "api.qloudsound.com/*"
-custom_domain = true
-
-[observability]
-enabled = false
-head_sampling_rate = 1
-
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-persist = true
-invocation_logs = true
-
-[observability.traces]
-enabled = false
-persist = true
-head_sampling_rate = 1
+zone_name = "qloudsound.com"
 
 [vars]
 # Comma separated list of allowed origins for CORS (can be overridden per environment).
