@@ -1,36 +1,35 @@
 name = "qloudsound-api"
 main = "src/index.ts"
+account_id = "b7eb9a280f73e95d5d278026959c1a60"
 compatibility_date = "2024-06-20"
 
+# Mantén el Workers.dev por seguridad aunque uses dominio propio
+workers_dev = true
 
-# Enable `node:` polyfills if needed (fetch, crypto already available).
+# Habilita las polyfills Node.js necesarias (fetch, crypto, etc.)
 compatibility_flags = ["nodejs_compat"]
 
-# Automatically attach the worker to the custom domain when deploying.
+# Ruta oficial (ya registrada) en la zona de Cloudflare
 [[routes]]
 pattern = "api.qloudsound.com/*"
 zone_name = "qloudsound.com"
 
+# Variables de entorno
 [vars]
-# Comma separated list of allowed origins for CORS (can be overridden per environment).
 API_ALLOWED_ORIGINS = "*"
 
+# Bases de datos D1
 [[d1_databases]]
 binding = "REQUESTS_DB"
 database_name = "qloudsound_requests"
 database_id = "62930b15-a8a9-4863-bb42-374c5d7a6d8d"
 
+# Observabilidad / logs
 [observability]
-enabled = false
-head_sampling_rate = 1
-
-[observability.logs]
 enabled = true
 head_sampling_rate = 1
-persist = true
-invocation_logs = true
 
-[observability.traces]
-enabled = false
-persist = true
-head_sampling_rate = 1
+  [observability.logs]
+  enabled = true
+  head_sampling_rate = 1
+  invocation_logs = true
